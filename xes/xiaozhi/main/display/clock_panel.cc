@@ -270,7 +270,7 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
         s_weather_mutex = xSemaphoreCreateMutex();
     }
 
-    /* 壁纸：240×320 的 RGB565 原始数据，直接放进 LVGL 图片描述符 */
+    /* 背景：纯黑一整屏（不用壁纸图片，省内存也不会再出现彩噪/解码问题） */
     s_wallpaper.header.magic = LV_IMAGE_HEADER_MAGIC;
     s_wallpaper.header.cf = LV_COLOR_FORMAT_RGB565_SWAPPED;
     s_wallpaper.header.w = WALLPAPER_W;
@@ -279,9 +279,15 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     s_wallpaper.data_size = WALLPAPER_BYTES;
     s_wallpaper.data = clock_wallpaper_bin_start;
 
-    bg_ = lv_image_create(screen);
-    lv_image_set_src(bg_, &s_wallpaper);
+    bg_ = lv_obj_create(screen);
+    lv_obj_remove_flag(bg_, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(bg_, WALLPAPER_W, WALLPAPER_H);
     lv_obj_set_pos(bg_, 0, 0);
+    lv_obj_set_style_bg_color(bg_, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(bg_, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(bg_, 0, 0);
+    lv_obj_set_style_radius(bg_, 0, 0);
+    lv_obj_set_style_pad_all(bg_, 0, 0);
 
     /* 版面：
        右上角：日期“11月25日”
