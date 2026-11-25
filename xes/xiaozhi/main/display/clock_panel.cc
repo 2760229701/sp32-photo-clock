@@ -245,7 +245,20 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
 
     /* 全部塞在屏幕最上方（人物头顶以上），下面整片留给小智的表情/对话文字
        版面：日期在右上角，大时钟在下面靠左，温度/天气/湿度在大时钟下面 */
-    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -6, 0);
+    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 0);
+    /* 日期靠右：整行满宽 + 右对齐，避免文字比标签宽时右边被裁掉 */
+    {
+        lv_obj_t* objs[5] = {date_label_.main, date_label_.shadow[0], date_label_.shadow[1],
+                             date_label_.shadow[2], date_label_.shadow[3]};
+        const int ox[5] = {0, -1, 1, -1, 1};
+        const int oy[5] = {0, -1, -1, 1, 1};
+        for (int i = 0; i < 5; i++) {
+            lv_obj_set_width(objs[i], WALLPAPER_W);
+            lv_obj_set_style_text_align(objs[i], LV_TEXT_ALIGN_RIGHT, 0);
+            lv_obj_set_style_pad_right(objs[i], 6, 0);
+            lv_obj_set_pos(objs[i], ox[i], oy[i]);
+        }
+    }
     time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 8, 18);
     weather_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 10, 78);
 
@@ -281,6 +294,14 @@ void ClockPanel::Tick() {
             char buf[16];
             strftime(buf, sizeof(buf), "%H:%M", &tm_now);
             SetText(&time_label_, buf);
+            {
+                lv_font_glyph_dsc_t gd = {};
+                bool g1 = lv_font_get_glyph_dsc(big_font_, &gd, '1', 0);
+                ESP_LOGI(TAG, "time '%s' label pos=(%d,%d) size=%dx%d lh=%d glyph'1'=%d box=%dx%d",
+                         buf, (int)lv_obj_get_x(time_label_.main), (int)lv_obj_get_y(time_label_.main),
+                         (int)lv_obj_get_width(time_label_.main), (int)lv_obj_get_height(time_label_.main),
+                         (int)big_font_->line_height, (int)g1, (int)gd.box_w, (int)gd.box_h);
+            }
 
             static const char* week[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
             char date[32];
