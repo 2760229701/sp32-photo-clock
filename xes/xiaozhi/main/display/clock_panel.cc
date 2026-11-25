@@ -363,6 +363,7 @@ void ClockPanel::Tick() {
             char buf[16];
             strftime(buf, sizeof(buf), "%H:%M", &tm_now);
             SetText(&time_label_, buf);
+            ESP_LOGI(TAG, "show time %s (epoch=%ld)", buf, (long)now);
 
             static const char* week[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
             char date[24];
