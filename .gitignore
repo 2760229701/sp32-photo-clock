@@ -7,6 +7,9 @@
 # 但壁纸数据必须入库（153600 字节，240×320 RGB565 字节交换）
 !xes/xiaozhi/main/clock_wallpaper.bin
 
+# 整机固件（9MB 合并 bin）入库，方便直接下载烧录
+!firmware/*.bin
+
 # 本机 ESP-IDF、工具链、组件缓存、临时文件
 xes/esp-idf/
 xes/espressif/

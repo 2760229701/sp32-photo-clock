@@ -79,6 +79,14 @@ idf.py -B build2 build
 
 ## 烧录
 
+懒人版：仓库里已经有一份**合并好的整机固件**，直接一条命令烧就行（不用编译）：
+
+```
+esptool --chip esp32s3 -p COM5 -b 921600 write_flash 0x0 firmware/xiaozhi_clock_full.bin
+```
+
+想自己编译的话按下面这样分地址烧：
+
 ```
 esptool --chip esp32s3 -p COM5 -b 921600 write_flash --flash_mode dio --flash_freq 80m --flash_size 16MB \
   0x0      build2/bootloader/bootloader.bin \
