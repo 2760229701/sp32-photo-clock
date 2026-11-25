@@ -6,6 +6,7 @@ base = Image.open(r"C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\壁�
 d = ImageDraw.Draw(base)
 
 cjk = ImageFont.truetype(r"C:\Windows\Fonts\simhei.ttf", 20)
+cjk16 = ImageFont.truetype(r"C:\Windows\Fonts\simhei.ttf", 16)
 clk = ImageFont.truetype(r"C:\Windows\Fonts\arialbd.ttf", 44)
 
 
@@ -30,7 +31,7 @@ def text_left(s, x, y, font=clk):
     d.text((x, y), s, font=font, fill=(255, 255, 255))
 
 
-text_right("11月25日", 10)
+text_right("11月25日", 6, font=cjk16, right=W - 4)
 text_right("15.8°C", 33)
 text_right("湿度56%", 55)
 text_right("周三", 77)
@@ -39,3 +40,4 @@ text_left("11:25", 8, 36)
 out = r"C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\时钟效果预览.png"
 base.save(out)
 print(out)
+

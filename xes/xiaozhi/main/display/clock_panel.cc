@@ -33,6 +33,10 @@ static void InitSntpOnce() {
         return;
     }
     done = true;
+    /* BUGFIX: 之前没设时区，localtime 按 UTC 走，时钟比北京时间慢 8 小时 */
+    setenv("TZ", "CST-8", 1);
+    tzset();
+
     esp_sntp_setoperatingmode(ESP_SNTP_OPMODE_POLL);
     esp_sntp_setservername(0, "ntp.aliyun.com");
     esp_sntp_setservername(1, "ntp.tencent.com");
@@ -56,6 +60,7 @@ extern const lv_font_t clock28;
 extern const lv_font_t font_clock72;      /* 72px 数字，备用 */
 extern const lv_font_t font_clock44;      /* 44px 数字（simhei），时钟用 */
 extern const lv_font_t font_cjk20;        /* 20px 中文（月/日/周/湿/度/小雨…） */
+extern const lv_font_t font_cjk16;        /* 16px 中文小字，日期用 */
 extern const lv_font_t font_noto_sans_basic_20_4;
 }
 
@@ -94,6 +99,37 @@ static bool JsonString(const char* body, const char* key, char* out, int out_len
     return i > 0;
 }
 
+/* 时间兜底：NTP 有时被运营商挡住不响应，但天气接口每次都能通，
+   它返回的 "time" 就是北京时间，用它把系统时间校准过来 */
+static void SetTimeFromWeather(const char* body) {
+    char ts[32] = "";
+    if (!JsonString(body, "\"time\"", ts, sizeof(ts))) {
+        return;
+    }
+    int Y = 0, M = 0, D = 0, h = 0, m = 0, s = 0;
+    if (sscanf(ts, "%d-%d-%d %d:%d:%d", &Y, &M, &D, &h, &m, &s) != 6) {
+        return;
+    }
+    struct tm tm_set = {};
+    tm_set.tm_year = Y - 1900;
+    tm_set.tm_mon = M - 1;
+    tm_set.tm_mday = D;
+    tm_set.tm_hour = h;
+    tm_set.tm_min = m;
+    tm_set.tm_sec = s;
+    time_t want = mktime(&tm_set);
+    time_t now = time(nullptr);
+    /* 注意：这个接口的 time 字段可能是 CDN 缓存的（实测慢 1 小时），
+       所以只在"完全没校过时"时才用它兜底，NTP 成功过就绝对不覆盖 */
+    if (want > 1600000000L && now < 1700000000L) {
+        struct timeval tv = {};
+        tv.tv_sec = want;
+        tv.tv_usec = 0;
+        settimeofday(&tv, nullptr);
+        ESP_LOGI(TAG, "time set from weather api: %s", ts);
+    }
+}
+
 static bool FetchWeather() {
     char* buf = (char*)malloc(4096);
     if (buf == nullptr) {
@@ -121,6 +157,7 @@ static bool FetchWeather() {
             total += r;
         }
         buf[total] = '\0';
+        SetTimeFromWeather(buf);
         char wendu[16] = "", shidu[16] = "", type[24] = "";
         if (JsonString(buf, "\"wendu\"", wendu, sizeof(wendu)) && JsonString(buf, "\"type\"", type, sizeof(type))) {
             JsonString(buf, "\"shidu\"", shidu, sizeof(shidu));
@@ -250,26 +287,26 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
        右上角：日期“11月25日”
        右侧一列（从上到下）：温度 → 湿度 → 星期
        左侧：时钟，位置在日期下面一点，避开屏幕白边 */
-    auto right_align = [](OutlinedLabel& lb, int y) {
+    auto right_align = [](OutlinedLabel& lb, int y, int pad_r) {
         lv_obj_t* objs[5] = {lb.main, lb.shadow[0], lb.shadow[1], lb.shadow[2], lb.shadow[3]};
         const int ox[5] = {0, -1, 1, -1, 1};
         const int oy[5] = {0, -1, -1, 1, 1};
         for (int i = 0; i < 5; i++) {
             lv_obj_set_width(objs[i], WALLPAPER_W);
             lv_obj_set_style_text_align(objs[i], LV_TEXT_ALIGN_RIGHT, 0);
-            lv_obj_set_style_pad_right(objs[i], 8, 0);
+            lv_obj_set_style_pad_right(objs[i], pad_r, 0);
             lv_obj_set_pos(objs[i], ox[i], y + oy[i]);
         }
     };
 
-    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 12);
-    right_align(date_label_, 12);
+    date_label_ = *NewLabel(screen, &font_cjk16, LV_ALIGN_TOP_LEFT, 0, 6);
+    right_align(date_label_, 6, 4);
     temp_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 34);
-    right_align(temp_label_, 34);
+    right_align(temp_label_, 34, 8);
     humi_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 56);
-    right_align(humi_label_, 56);
+    right_align(humi_label_, 56, 8);
     week_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 78);
-    right_align(week_label_, 78);
+    right_align(week_label_, 78, 8);
 
     /* 时钟：靠左，字比之前小一号（44px），整体下移到 y=38 避开白边 */
     time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 0, 38);
