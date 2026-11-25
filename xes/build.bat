@@ -1,0 +1,25 @@
+@echo off
+set IDF_PATH=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\esp-idf
+set IDF_TOOLS_PATH=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\espressif
+set IDF_PYTHON_ENV_PATH=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\espressif\python_env\idf6.0_py3.13_env
+set IDF_COMPONENT_CACHE_PATH=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\cmpcache
+set IDF_GITHUB_ASSETS=dl.espressif.cn/github_assets
+set SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.esp32s3;sdkconfig.board.defaults
+set IDF_CCACHE_ENABLE=0
+set CCACHE_ENABLE=0
+set TMP=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\tmp
+set TEMP=%TMP%
+set CMAKE_BUILD_PARALLEL_LEVEL=4
+set PATH=%IDF_PYTHON_ENV_PATH%\Scripts;C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\espressif\tools\ninja\1.12.1;C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\espressif\tools\cmake\4.0.3\bin;C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\espressif\tools\xtensa-esp-elf\esp-15.2.0_20251204\xtensa-esp-elf\bin;%PATH%
+cd /d C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\xiaozhi\build
+set LOG=C:\Users\Administrator\Doubao\chats\2026-11-24\new-chat\xes\log_ninja.txt
+for /l %%i in (1,1,8) do (
+  echo ===== pass %%i ===== >> "%LOG%"
+  ninja -k 0 -j 1 all >> "%LOG%" 2>&1
+  if exist xiaozhi.elf goto done
+)
+echo all_passes_done >> "%LOG%"
+goto end
+:done
+echo ELF_OK >> "%LOG%"
+:end

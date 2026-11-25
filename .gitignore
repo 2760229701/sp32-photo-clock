@@ -1,0 +1,39 @@
+# 大文件 / 构建产物 / 本机工具链，一律不入库
+固件备份/
+*.bin
+*.elf
+*.map
+
+# 但壁纸数据必须入库（153600 字节，240×320 RGB565 字节交换）
+!xes/xiaozhi/main/clock_wallpaper.bin
+
+# 本机 ESP-IDF、工具链、组件缓存、临时文件
+xes/esp-idf/
+xes/espressif/
+xes/cmpcache/
+xes/tools/
+xes/tmp/
+xes/*.txt
+xes/*.log
+
+# 构建目录
+build/
+build2/
+**/build/
+**/build2/
+**/managed_components/
+**/dependencies.lock
+**/sdkconfig
+**/sdkconfig.old
+
+# 系统 / 编辑器
+Thumbs.db
+.DS_Store
+.vscode/
+.cache/
+
+# 上游克隆残留
+**/_git_backup_upstream/
+
+# 字体生成工具的依赖
+xes/xes_font/node_modules/
