@@ -39,8 +39,8 @@ private:
     OutlinedLabel time_label_;
     OutlinedLabel date_label_;
     OutlinedLabel temp_label_;
-    OutlinedLabel weather_label_;
     OutlinedLabel humi_label_;
+    OutlinedLabel week_label_;
 
     int last_min_ = -1;
     int last_temp_x10_ = -9999;

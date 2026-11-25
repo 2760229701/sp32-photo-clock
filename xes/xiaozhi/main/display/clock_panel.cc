@@ -223,7 +223,7 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     (void)cjk_font;
     (void)has_big_font;
     const lv_font_t* text_font = (const lv_font_t*)&font_cjk20;
-    big_font_ = (const lv_font_t*)&font_clock72;
+    big_font_ = (const lv_font_t*)&clock48;   /* 48px 数字，比 72 小一号 */
     cjk_font_ = text_font;
 
     if (s_weather_mutex == nullptr) {
@@ -245,32 +245,42 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
 
     /* 全部塞在屏幕最上方（人物头顶以上），下面整片留给小智的表情/对话文字
        版面：日期在右上角，大时钟在下面靠左，温度/天气/湿度在大时钟下面 */
-    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 0);
+    /* 版面：
+       第一行：日期“11月25日”靠右上角
+       右侧一列（从上到下）：温度 → 湿度 → 星期
+       左侧：时钟（48px），位置往下挪，不让屏幕白边压住 */
+    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 6);
     /* 日期靠右：整行满宽 + 右对齐，避免文字比标签宽时右边被裁掉 */
     {
         lv_obj_t* objs[5] = {date_label_.main, date_label_.shadow[0], date_label_.shadow[1],
                              date_label_.shadow[2], date_label_.shadow[3]};
         const int ox[5] = {0, -1, 1, -1, 1};
-        const int oy[5] = {0, -1, -1, 1, 1};
+        const int oy[5] = {6, 5, 5, 7, 7};
         for (int i = 0; i < 5; i++) {
             lv_obj_set_width(objs[i], WALLPAPER_W);
             lv_obj_set_style_text_align(objs[i], LV_TEXT_ALIGN_RIGHT, 0);
-            lv_obj_set_style_pad_right(objs[i], 6, 0);
+            lv_obj_set_style_pad_right(objs[i], 8, 0);
             lv_obj_set_pos(objs[i], ox[i], oy[i]);
         }
     }
-    time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 8, 18);
-    weather_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 10, 78);
+    temp_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 28);
+    humi_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 50);
+    week_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 72);
+    time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 8, 34);
 
     /* 把所有新对象挪到最底层（壁纸 0，其余依次），保证小智的表情和字幕在它们上面 */
     lv_obj_move_to_index(bg_, 0);
     lv_obj_move_to_index(time_label_.main, 1);
     lv_obj_move_to_index(date_label_.main, 1);
-    lv_obj_move_to_index(weather_label_.main, 1);
+    lv_obj_move_to_index(temp_label_.main, 1);
+    lv_obj_move_to_index(humi_label_.main, 1);
+    lv_obj_move_to_index(week_label_.main, 1);
     for (int i = 0; i < 4; i++) {
         lv_obj_move_to_index(time_label_.shadow[i], 1);
         lv_obj_move_to_index(date_label_.shadow[i], 1);
-        lv_obj_move_to_index(weather_label_.shadow[i], 1);
+        lv_obj_move_to_index(temp_label_.shadow[i], 1);
+        lv_obj_move_to_index(humi_label_.shadow[i], 1);
+        lv_obj_move_to_index(week_label_.shadow[i], 1);
     }
 
     created_ = true;
@@ -294,20 +304,12 @@ void ClockPanel::Tick() {
             char buf[16];
             strftime(buf, sizeof(buf), "%H:%M", &tm_now);
             SetText(&time_label_, buf);
-            {
-                lv_font_glyph_dsc_t gd = {};
-                bool g1 = lv_font_get_glyph_dsc(big_font_, &gd, '1', 0);
-                ESP_LOGI(TAG, "time '%s' label pos=(%d,%d) size=%dx%d lh=%d glyph'1'=%d box=%dx%d",
-                         buf, (int)lv_obj_get_x(time_label_.main), (int)lv_obj_get_y(time_label_.main),
-                         (int)lv_obj_get_width(time_label_.main), (int)lv_obj_get_height(time_label_.main),
-                         (int)big_font_->line_height, (int)g1, (int)gd.box_w, (int)gd.box_h);
-            }
 
             static const char* week[] = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
-            char date[32];
-            snprintf(date, sizeof(date), "%d月%d日 %s", tm_now.tm_mon + 1, tm_now.tm_mday,
-                     week[tm_now.tm_wday]);
+            char date[24];
+            snprintf(date, sizeof(date), "%d月%d日", tm_now.tm_mon + 1, tm_now.tm_mday);
             SetText(&date_label_, date);
+            SetText(&week_label_, week[tm_now.tm_wday]);
         }
     } else {
         static int dots = 0;
@@ -319,16 +321,15 @@ void ClockPanel::Tick() {
 
     if (s_weather_mutex != nullptr && xSemaphoreTake(s_weather_mutex, 0) == pdTRUE) {
         int t = s_temp_x10, h = s_humi;
-        char w[24];
-        strncpy(w, s_weather, sizeof(w) - 1);
-        w[sizeof(w) - 1] = '\0';
         bool ok = s_weather_ok;
         xSemaphoreGive(s_weather_mutex);
         if (ok) {
-            /* 温度、天气、湿度合并成一行，省空间又不挡人物 */
-            char buf[64];
-            snprintf(buf, sizeof(buf), "%d.%d°C %s 湿度%d%%", t / 10, abs(t % 10), w, h);
-            SetText(&weather_label_, buf);
+            /* 右侧一列：温度在上，湿度在下（星期在它们下面，由时间分支更新） */
+            char buf[24];
+            snprintf(buf, sizeof(buf), "%d.%d°C", t / 10, abs(t % 10));
+            SetText(&temp_label_, buf);
+            snprintf(buf, sizeof(buf), "湿度%d%%", h);
+            SetText(&humi_label_, buf);
         }
     }
 }
