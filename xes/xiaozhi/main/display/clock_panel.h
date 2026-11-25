@@ -27,7 +27,7 @@ private:
         bool used = false;
     };
 
-    OutlinedLabel* NewLabel(lv_obj_t* parent, const lv_font_t* font, int align_ofs_y);
+    OutlinedLabel* NewLabel(lv_obj_t* parent, const lv_font_t* font, lv_align_t align, int x, int y);
     void SetText(OutlinedLabel* label, const char* text);
 
     lv_obj_t* screen_ = nullptr;

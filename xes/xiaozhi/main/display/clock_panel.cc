@@ -53,6 +53,8 @@ extern const uint8_t clock_wallpaper_bin_start[] asm("_binary_clock_wallpaper_bi
 extern "C" {
 extern const lv_font_t clock48;
 extern const lv_font_t clock28;
+extern const lv_font_t font_clock72;      /* 72px 数字，时钟用 */
+extern const lv_font_t font_cjk20;        /* 20px 中文（月/日/周/湿/度/小雨…） */
 extern const lv_font_t font_noto_sans_basic_20_4;
 }
 
@@ -167,7 +169,8 @@ ClockPanel& ClockPanel::Instance() {
     return instance;
 }
 
-ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_t* font, int ofs_y) {
+ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_t* font,
+                                                lv_align_t align, int x, int y) {
     /* 返回一个静态池里的槽位，调用者自行记录 */
     static OutlinedLabel pool[8];
     static int used = 0;
@@ -178,10 +181,9 @@ ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_
     lb->main = lv_label_create(parent);
     lv_obj_set_style_text_font(lb->main, font, 0);
     lv_obj_set_style_text_color(lb->main, lv_color_white(), 0);
-    lv_obj_set_width(lb->main, WALLPAPER_W);
-    lv_obj_set_style_text_align(lb->main, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_width(lb->main, LV_SIZE_CONTENT);
     lv_label_set_text(lb->main, "");
-    lv_obj_align(lb->main, LV_ALIGN_TOP_MID, 0, ofs_y);
+    lv_obj_align(lb->main, align, x, y);
 
     /* 黑色描边：4 个方向的副本垫在白字下面 */
     const int dx[4] = {-1, 1, -1, 1};
@@ -190,10 +192,9 @@ ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_
         lb->shadow[i] = lv_label_create(parent);
         lv_obj_set_style_text_font(lb->shadow[i], font, 0);
         lv_obj_set_style_text_color(lb->shadow[i], lv_color_black(), 0);
-        lv_obj_set_width(lb->shadow[i], WALLPAPER_W);
-        lv_obj_set_style_text_align(lb->shadow[i], LV_TEXT_ALIGN_CENTER, 0);
+        lv_obj_set_width(lb->shadow[i], LV_SIZE_CONTENT);
         lv_label_set_text(lb->shadow[i], "");
-        lv_obj_align(lb->shadow[i], LV_ALIGN_TOP_MID, dx[i], ofs_y + dy[i]);
+        lv_obj_align(lb->shadow[i], align, x + dx[i], y + dy[i]);
     }
     lb->used = true;
     return lb;
@@ -221,8 +222,8 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     /* 只用编译进 flash 的静态字体：主题里的字体对象可能在换皮时被释放，指针会失效 */
     (void)cjk_font;
     (void)has_big_font;
-    const lv_font_t* text_font = (const lv_font_t*)&font_noto_sans_basic_20_4;
-    big_font_ = (const lv_font_t*)&clock48;
+    const lv_font_t* text_font = (const lv_font_t*)&font_cjk20;
+    big_font_ = (const lv_font_t*)&font_clock72;
     cjk_font_ = text_font;
 
     if (s_weather_mutex == nullptr) {
@@ -242,10 +243,11 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     lv_image_set_src(bg_, &s_wallpaper);
     lv_obj_set_pos(bg_, 0, 0);
 
-    /* 全部塞在屏幕最上方（人物头顶以上），下面整片留给小智的表情/对话文字 */
-    time_label_ = *NewLabel(screen, big_font_, 0);
-    date_label_ = *NewLabel(screen, cjk_font_, 38);
-    weather_label_ = *NewLabel(screen, cjk_font_, 68);
+    /* 全部塞在屏幕最上方（人物头顶以上），下面整片留给小智的表情/对话文字
+       版面：日期在右上角，大时钟在下面靠左，温度/天气/湿度在大时钟下面 */
+    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -6, 0);
+    time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 8, 18);
+    weather_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 10, 78);
 
     /* 把所有新对象挪到最底层（壁纸 0，其余依次），保证小智的表情和字幕在它们上面 */
     lv_obj_move_to_index(bg_, 0);
