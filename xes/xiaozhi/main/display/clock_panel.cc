@@ -53,7 +53,8 @@ extern const uint8_t clock_wallpaper_bin_start[] asm("_binary_clock_wallpaper_bi
 extern "C" {
 extern const lv_font_t clock48;
 extern const lv_font_t clock28;
-extern const lv_font_t font_clock72;      /* 72px 数字，时钟用 */
+extern const lv_font_t font_clock72;      /* 72px 数字，备用 */
+extern const lv_font_t font_clock44;      /* 44px 数字（simhei），时钟用 */
 extern const lv_font_t font_cjk20;        /* 20px 中文（月/日/周/湿/度/小雨…） */
 extern const lv_font_t font_noto_sans_basic_20_4;
 }
@@ -181,7 +182,8 @@ ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_
     lb->main = lv_label_create(parent);
     lv_obj_set_style_text_font(lb->main, font, 0);
     lv_obj_set_style_text_color(lb->main, lv_color_white(), 0);
-    lv_obj_set_width(lb->main, LV_SIZE_CONTENT);
+    lv_obj_set_width(lb->main, WALLPAPER_W);
+    lv_obj_set_style_text_align(lb->main, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_text(lb->main, "");
     lv_obj_align(lb->main, align, x, y);
 
@@ -192,7 +194,8 @@ ClockPanel::OutlinedLabel* ClockPanel::NewLabel(lv_obj_t* parent, const lv_font_
         lb->shadow[i] = lv_label_create(parent);
         lv_obj_set_style_text_font(lb->shadow[i], font, 0);
         lv_obj_set_style_text_color(lb->shadow[i], lv_color_black(), 0);
-        lv_obj_set_width(lb->shadow[i], LV_SIZE_CONTENT);
+        lv_obj_set_width(lb->shadow[i], WALLPAPER_W);
+        lv_obj_set_style_text_align(lb->shadow[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_text(lb->shadow[i], "");
         lv_obj_align(lb->shadow[i], align, x + dx[i], y + dy[i]);
     }
@@ -223,7 +226,7 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     (void)cjk_font;
     (void)has_big_font;
     const lv_font_t* text_font = (const lv_font_t*)&font_cjk20;
-    big_font_ = (const lv_font_t*)&clock48;   /* 48px 数字，比 72 小一号 */
+    big_font_ = (const lv_font_t*)&font_clock44;   /* 44px 数字 */
     cjk_font_ = text_font;
 
     if (s_weather_mutex == nullptr) {
@@ -243,44 +246,57 @@ void ClockPanel::Create(lv_obj_t* screen, const lv_font_t* cjk_font, bool has_bi
     lv_image_set_src(bg_, &s_wallpaper);
     lv_obj_set_pos(bg_, 0, 0);
 
-    /* 全部塞在屏幕最上方（人物头顶以上），下面整片留给小智的表情/对话文字
-       版面：日期在右上角，大时钟在下面靠左，温度/天气/湿度在大时钟下面 */
     /* 版面：
-       第一行：日期“11月25日”靠右上角
+       右上角：日期“11月25日”
        右侧一列（从上到下）：温度 → 湿度 → 星期
-       左侧：时钟（48px），位置往下挪，不让屏幕白边压住 */
-    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 6);
-    /* 日期靠右：整行满宽 + 右对齐，避免文字比标签宽时右边被裁掉 */
-    {
-        lv_obj_t* objs[5] = {date_label_.main, date_label_.shadow[0], date_label_.shadow[1],
-                             date_label_.shadow[2], date_label_.shadow[3]};
+       左侧：时钟，位置在日期下面一点，避开屏幕白边 */
+    auto right_align = [](OutlinedLabel& lb, int y) {
+        lv_obj_t* objs[5] = {lb.main, lb.shadow[0], lb.shadow[1], lb.shadow[2], lb.shadow[3]};
         const int ox[5] = {0, -1, 1, -1, 1};
-        const int oy[5] = {6, 5, 5, 7, 7};
+        const int oy[5] = {0, -1, -1, 1, 1};
         for (int i = 0; i < 5; i++) {
             lv_obj_set_width(objs[i], WALLPAPER_W);
             lv_obj_set_style_text_align(objs[i], LV_TEXT_ALIGN_RIGHT, 0);
             lv_obj_set_style_pad_right(objs[i], 8, 0);
-            lv_obj_set_pos(objs[i], ox[i], oy[i]);
+            lv_obj_set_pos(objs[i], ox[i], y + oy[i]);
+        }
+    };
+
+    date_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 12);
+    right_align(date_label_, 12);
+    temp_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 34);
+    right_align(temp_label_, 34);
+    humi_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 56);
+    right_align(humi_label_, 56);
+    week_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_LEFT, 0, 78);
+    right_align(week_label_, 78);
+
+    /* 时钟：靠左，字比之前小一号（44px），整体下移到 y=38 避开白边 */
+    time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 0, 38);
+    {
+        lv_obj_t* objs[5] = {time_label_.main, time_label_.shadow[0], time_label_.shadow[1],
+                             time_label_.shadow[2], time_label_.shadow[3]};
+        for (int i = 0; i < 5; i++) {
+            lv_obj_set_width(objs[i], WALLPAPER_W);
+            lv_obj_set_style_text_align(objs[i], LV_TEXT_ALIGN_LEFT, 0);
+            lv_obj_set_style_pad_left(objs[i], 8, 0);
         }
     }
-    temp_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 28);
-    humi_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 50);
-    week_label_ = *NewLabel(screen, cjk_font_, LV_ALIGN_TOP_RIGHT, -8, 72);
-    time_label_ = *NewLabel(screen, big_font_, LV_ALIGN_TOP_LEFT, 8, 34);
 
-    /* 把所有新对象挪到最底层（壁纸 0，其余依次），保证小智的表情和字幕在它们上面 */
-    lv_obj_move_to_index(bg_, 0);
-    lv_obj_move_to_index(time_label_.main, 1);
-    lv_obj_move_to_index(date_label_.main, 1);
-    lv_obj_move_to_index(temp_label_.main, 1);
-    lv_obj_move_to_index(humi_label_.main, 1);
-    lv_obj_move_to_index(week_label_.main, 1);
-    for (int i = 0; i < 4; i++) {
-        lv_obj_move_to_index(time_label_.shadow[i], 1);
-        lv_obj_move_to_index(date_label_.shadow[i], 1);
-        lv_obj_move_to_index(temp_label_.shadow[i], 1);
-        lv_obj_move_to_index(humi_label_.shadow[i], 1);
-        lv_obj_move_to_index(week_label_.shadow[i], 1);
+    /* 把文字层抬到最上面：放在最底层时，时钟那块会被小智的不透明层挡住 */
+    {
+        auto raise = [](lv_obj_t* main_obj, lv_obj_t* sh[4]) {
+            for (int i = 0; i < 4; i++) {
+                lv_obj_move_foreground(sh[i]);
+            }
+            lv_obj_move_foreground(main_obj);
+        };
+        raise(time_label_.main, time_label_.shadow);
+        raise(date_label_.main, date_label_.shadow);
+        raise(temp_label_.main, temp_label_.shadow);
+        raise(humi_label_.main, humi_label_.shadow);
+        raise(week_label_.main, week_label_.shadow);
+        lv_obj_move_background(bg_);
     }
 
     created_ = true;
